@@ -1,0 +1,216 @@
+// ==UserScript==
+// @name         Freedomsex 2
+// @namespace    http://tampermonkey.net/
+// @version      0.1
+// @description  try to take over the world!
+// @author       Rey
+// @match        http://freedomsex.me/*
+// @grant        none
+// ==/UserScript==
+
+
+console.log("Start Load Script");
+
+function secToTime(sec){
+    dt = new Date();
+    dt.setTime(sec*1000);
+    if (dt.getUTCHours()==0)
+    {
+        if (dt.getUTCMinutes()==0)
+        {
+            return dt.getUTCSeconds();
+        }
+        else
+        {
+            return dt.getUTCMinutes()+":"+dt.getUTCSeconds();
+        }
+    }
+    else
+    {
+        return dt.getUTCHours()+":"+dt.getUTCMinutes()+":"+dt.getUTCSeconds();
+    }
+
+}
+
+window.user_info = function user_info(uids_list,uid)
+{
+    for (var i = 0;i<uids_list.length;i++)
+    {
+        if (uids_list[i].id==uid)
+        {
+            return uids_list[i];
+        }
+    }
+};
+
+// Функция паузы
+function sleepFor( sleepDuration ){
+    var now = new Date().getTime();
+    while(new Date().getTime() < now + sleepDuration){ /* do nothing */ }
+}
+
+// Инициализация переменных
+window.user_uid=0;
+window.contacts=document.getElementsByClassName('contact-item');
+window.contacts_next=false;
+
+
+fnk_user_uid=function()
+{
+    // Новое кнопки меню
+    menu=document.getElementsByClassName('menu-user__navbar');
+    new_menu_1= document.createElement('div');
+    new_menu_1.innerHTML = '<div class="link_div" id="link_user"><a style="color:white;" href="http://freedomsex.me/userinfo/profile/'+window.user_uid+'">User</a></div><div class="link_div" id="link_admin"><a style="color:white;" href="http://freedomsex.me/argue/profile/'+window.user_uid+'">Admin</a></div>';
+    new_menu_1.id='link';
+    menu[0].appendChild(new_menu_1);
+};
+
+// Создание ID в списке поиска
+window._waitForSearch = function _waitForSearch()
+{
+    window.searchs=document.getElementsByClassName('search-item');
+
+    if (window.searchs.length!==0)
+    {
+        console.log('Search ('+window.searchs.length+')');
+        for (var i = 0;i < searchs.length;i++)
+        {
+            elem_d=searchs[i];
+            if (elem_d.getElementsByTagName('a').length!=2)
+            {
+                elem_a=elem_d.getElementsByTagName("a")[0].pathname.split("/")[1];
+                elem_b=elem_d.getElementsByClassName("search-item__name")[0];
+                elem_b.innerHTML = "<a style='color: #333333;' href='http://freedomsex.me/userinfo/profile/"+elem_a+"'>"+elem_b.innerHTML+"</a>";
+                new_a=document.createElement("div");
+                new_a.innerHTML = "("+secToTime(user_info(window.user_list_search,elem_a).last)+")";
+                new_a.id="ID";
+                elem_d.appendChild(new_a);
+            }
+        }
+    }
+    else
+    {
+        setTimeout(_waitForSearch, 10);
+        console.log("Жду (_waitForSearch)...");
+    }
+};
+
+// Создание ID в списке общения
+window._waitForContacts = function _waitForContacts(len_contacts,col)
+{
+    var b=false;
+
+    if (window.contacts_off==0)
+    {
+
+        console.log(window.contacts_off);
+        if (window.contacts.length<=10)
+        {
+            b=true;
+            console.log('New Chats ('+window.contacts.length+')');
+        }
+    }
+    else
+    {
+        if (window.contacts.length>len_contacts)
+        {
+            b=true;
+            console.log('Next Chats ('+window.contacts.length+')');
+        }
+    }
+
+    if (b)
+    {
+        if (window.contacts_off==0)
+        {
+            ids=0;
+        }
+        else
+        {
+            ids=len_contacts;
+        }
+        for (var i = ids;i < contacts.length;i++)
+        {
+            cnt=contacts[i].getElementsByClassName('contact-item__info')[0];
+            if (cnt.getElementsByTagName('a').length==0)
+            {
+                id_cnt= document.createElement('a');
+                id_cnt.href = 'http://freedomsex.me/userinfo/profile/'+contacts_ids[i-ids].human_id;
+                id_cnt.innerHTML = contacts_ids[i-ids].human_id;
+                id_cnt.id='cnt';
+                cnt.appendChild(id_cnt);
+            }
+        }
+    }
+    else
+    {
+        col++;
+        if (col>100) {return;}
+        setTimeout(_waitForContacts, 0, len_contacts,col);
+        console.log("Жду (_waitForContacts)..."+col);
+    }
+};
+
+(function(open)
+ {
+    XMLHttpRequest.prototype.open = function(method, url, async, user, pass)
+    {
+        skip=false;
+        this.addEventListener("readystatechange", function()
+                              {
+            if (this.readyState==4)
+            {
+                try
+                {
+                    Response=JSON.parse(this.responseText);
+                    ResponseType='JSON';
+                }
+                catch (e)
+                {
+                    Response=this.responseText;
+                    ResponseType='Text';
+                }
+                // Данные пользователя
+                if (url=="/sync/sess/")
+                {
+                    window.user_uid=Response.uid;
+                    fnk_user_uid();
+                }
+                // Поиск
+                else if (url.split("/")[2]=="search.a4sex.net")
+                {
+                    window.user_list_search=JSON.parse(this.responseText).users;
+                    setTimeout(_waitForSearch, 0);
+
+                }
+                // Общение
+                else if ((url.split("/")[2]=="contact.a4sex.net")&&(url.indexOf("offset")!=-1))
+                {
+                    window.contacts_ids=Response;
+                    window.contacts_off=url.split("=")[1];
+
+                    setTimeout(_waitForContacts, 0, document.getElementsByClassName('contact-item__content').length,0);
+                    window.contacts_next=true;
+                }
+
+                // Дебаг
+                console.group("method",method);
+                console.log("url",url);
+                try
+                {
+                    console.log("responseJSON",JSON.parse(this.responseText));
+                }
+                catch (e)
+                {
+                    console.log("responseText",this.responseText);
+                }
+                console.groupEnd();
+            }
+        }, false);
+
+        open.call(this, method, url, async, user, pass);
+    };
+
+})(XMLHttpRequest.prototype.open);
+
+console.log("End Load Script");
